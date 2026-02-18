@@ -1,5 +1,58 @@
-# Vue 3 + Vite
+﻿# taskbotapp-frontend
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+TaskBotApp のフロントエンド（Vue 3 + Vite）です。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## ディレクトリ構成
+
+```txt
+src/
+  app/
+    App.vue
+    layouts/
+      DefaultLayout.vue
+  features/
+    tasks/
+      api/
+      components/
+      pages/
+        TasksPage.vue
+      stores/
+  shared/
+    components/
+      AppFooter.vue
+      AppHeader.vue
+    lib/
+    styles/
+      global.css
+```
+
+## 前提環境
+
+- `Node.js 18+`
+- `npm`
+
+## セットアップ
+
+```powershell
+npm install
+```
+
+## 開発サーバー起動
+
+```powershell
+npm run dev
+```
+
+通常は `http://localhost:5173/` で確認できます。
+
+## ビルド
+
+```powershell
+npm run build
+```
+
+## ビルド結果のプレビュー
+
+```powershell
+npm run preview
+```
