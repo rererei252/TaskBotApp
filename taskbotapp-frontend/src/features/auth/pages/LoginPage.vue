@@ -2,17 +2,56 @@
 import { computed, ref } from 'vue'
 
 const mode = ref('signin')
-const email = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const rememberMe = ref(false)
+const signinEmail = ref('')
+const signinPassword = ref('')
+const signupEmail = ref('')
+const signupPassword = ref('')
+const signupConfirmPassword = ref('')
+const signinRememberMe = ref(false)
 const errorMessage = ref('')
-const showPassword = ref(false)
-const showConfirmPassword = ref(false)
+const showSigninPassword = ref(false)
+const showSignupPassword = ref(false)
+const showSignupConfirmPassword = ref(false)
 
 const isSignIn = computed(() => mode.value === 'signin')
 const title = computed(() => (isSignIn.value ? 'サインイン' : '新規登録'))
 const submitLabel = computed(() => (isSignIn.value ? 'サインイン' : '登録'))
+const email = computed({
+  get: () => (isSignIn.value ? signinEmail.value : signupEmail.value),
+  set: (value) => {
+    if (isSignIn.value) {
+      signinEmail.value = value
+    } else {
+      signupEmail.value = value
+    }
+  },
+})
+const password = computed({
+  get: () => (isSignIn.value ? signinPassword.value : signupPassword.value),
+  set: (value) => {
+    if (isSignIn.value) {
+      signinPassword.value = value
+    } else {
+      signupPassword.value = value
+    }
+  },
+})
+const confirmPassword = computed({
+  get: () => signupConfirmPassword.value,
+  set: (value) => {
+    signupConfirmPassword.value = value
+  },
+})
+const showPassword = computed({
+  get: () => (isSignIn.value ? showSigninPassword.value : showSignupPassword.value),
+  set: (value) => {
+    if (isSignIn.value) {
+      showSigninPassword.value = value
+    } else {
+      showSignupPassword.value = value
+    }
+  },
+})
 
 const switchMode = (nextMode) => {
   mode.value = nextMode
@@ -20,12 +59,15 @@ const switchMode = (nextMode) => {
 }
 
 const onSubmit = () => {
-  if (!email.value || !password.value) {
+  const currentEmail = isSignIn.value ? signinEmail.value : signupEmail.value
+  const currentPassword = isSignIn.value ? signinPassword.value : signupPassword.value
+
+  if (!currentEmail || !currentPassword) {
     errorMessage.value = 'メールアドレスとパスワードを入力してください。'
     return
   }
 
-  if (!isSignIn.value && password.value !== confirmPassword.value) {
+  if (!isSignIn.value && signupPassword.value !== signupConfirmPassword.value) {
     errorMessage.value = '確認用パスワードが一致しません。'
     return
   }
@@ -34,8 +76,8 @@ const onSubmit = () => {
   // TODO: API連携時に認証処理を実装
   console.log('Auth submit:', {
     mode: mode.value,
-    email: email.value,
-    rememberMe: rememberMe.value,
+    email: currentEmail,
+    rememberMe: signinRememberMe.value,
   })
 }
 </script>
@@ -127,18 +169,18 @@ const onSubmit = () => {
           <input
             id="confirmPassword"
             v-model="confirmPassword"
-            :type="showConfirmPassword ? 'text' : 'password'"
+            :type="showSignupConfirmPassword ? 'text' : 'password'"
             autocomplete="new-password"
             placeholder="確認用パスワードを入力"
           />
           <button
             class="toggle-visibility"
             type="button"
-            :aria-label="showConfirmPassword ? '確認用パスワードを隠す' : '確認用パスワードを表示'"
-            @click="showConfirmPassword = !showConfirmPassword"
+            :aria-label="showSignupConfirmPassword ? '確認用パスワードを隠す' : '確認用パスワードを表示'"
+            @click="showSignupConfirmPassword = !showSignupConfirmPassword"
           >
             <svg
-              v-if="showConfirmPassword"
+              v-if="showSignupConfirmPassword"
               class="toggle-icon"
               viewBox="0 0 24 24"
               fill="none"
@@ -178,7 +220,7 @@ const onSubmit = () => {
         </p>
 
         <label v-if="isSignIn" class="checkbox">
-          <input v-model="rememberMe" type="checkbox" />
+          <input v-model="signinRememberMe" type="checkbox" />
           ログイン情報を保持する
         </label>
 
