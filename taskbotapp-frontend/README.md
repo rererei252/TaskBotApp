@@ -11,6 +11,9 @@ src/
     layouts/
       DefaultLayout.vue
   features/
+    auth/
+      pages/
+        LoginPage.vue
     tasks/
       api/
       components/

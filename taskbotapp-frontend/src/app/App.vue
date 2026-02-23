@@ -1,10 +1,10 @@
 <script setup>
-import DefaultLayout from './layouts/DefaultLayout.vue'
-import TasksPage from '../features/tasks/pages/TasksPage.vue'
+import AuthLayout from './layouts/AuthLayout.vue'
+import LoginPage from '../features/auth/pages/LoginPage.vue'
 </script>
 
 <template>
-  <DefaultLayout>
-    <TasksPage />
-  </DefaultLayout>
+  <AuthLayout :show-nav="false">
+    <LoginPage />
+  </AuthLayout>
 </template>

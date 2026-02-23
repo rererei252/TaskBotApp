@@ -1,3 +1,12 @@
+<script setup>
+defineProps({
+  showNav: {
+    type: Boolean,
+    default: true,
+  },
+})
+</script>
+
 <template>
   <footer class="footer">
     <div class="inner">TaskBotApp Frontend</div>

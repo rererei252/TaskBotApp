@@ -1,15 +1,22 @@
 <script setup>
 import AppHeader from '../../shared/components/AppHeader.vue'
 import AppFooter from '../../shared/components/AppFooter.vue'
+
+defineProps({
+  showNav: {
+    type: Boolean,
+    default: true,
+  },
+})
 </script>
 
 <template>
   <div class="layout">
-    <AppHeader />
+    <AppHeader :show-nav="showNav" />
     <main class="content">
       <slot />
     </main>
-    <AppFooter />
+    <AppFooter v-if="showNav" />
   </div>
 </template>
 
