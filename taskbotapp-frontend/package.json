@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --configLoader native",
     "build": "vite build --configLoader native",
+    "type-check": "vue-tsc --noEmit",
     "preview": "vite preview --configLoader native"
   },
   "dependencies": {
@@ -13,7 +14,9 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.2",
-    "vite": "^8.0.0-beta.13"
+    "typescript": "^5.9.2",
+    "vite": "^8.0.0-beta.13",
+    "vue-tsc": "^2.0.29"
   },
   "overrides": {
     "vite": "^8.0.0-beta.13"

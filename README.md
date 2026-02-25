@@ -12,6 +12,46 @@ TaskBotApp は、`Spring Boot` バックエンドと `Vue 3 + Vite` フロント
 - `Java 21`
 - `Node.js 18+`（推奨: LTS）
 - `npm`
+- `PostgreSQL 16+`（推奨）
+
+## PostgreSQL 設定
+
+バックエンドは以下を既定値として PostgreSQL に接続します。
+
+- DB名: `taskkan_db`
+- URL: `jdbc:postgresql://localhost:5432/taskkan_db`
+- ユーザー: `postgres`
+- パスワード: `postgres`
+
+必要に応じて環境変数で上書きできます。
+
+- `DB_URL`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+
+## 認証 API
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+
+### signup リクエスト例
+
+```json
+{
+  "username": "taro",
+  "email": "taro@example.com",
+  "password": "abc12345"
+}
+```
+
+### login リクエスト例
+
+```json
+{
+  "email": "taro@example.com",
+  "password": "abc12345"
+}
+```
 
 ## 起動方法
 

@@ -1,7 +1,16 @@
-﻿<script setup>
+﻿<script setup lang="ts">
 import { computed, ref } from 'vue'
 
-const mode = ref('signin')
+type Mode = 'signin' | 'signup'
+type AuthApiResponse = {
+  message?: string
+}
+type ErrorApiResponse = {
+  message?: string
+}
+
+const mode = ref<Mode>('signin')
+const signupUsername = ref('')
 const signinEmail = ref('')
 const signinPassword = ref('')
 const signupEmail = ref('')
@@ -9,16 +18,17 @@ const signupPassword = ref('')
 const signupConfirmPassword = ref('')
 const signinRememberMe = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('')
+const isSubmitting = ref(false)
 const showSigninPassword = ref(false)
 const showSignupPassword = ref(false)
 const showSignupConfirmPassword = ref(false)
 
 const isSignIn = computed(() => mode.value === 'signin')
-const title = computed(() => (isSignIn.value ? 'サインイン' : '新規登録'))
 const submitLabel = computed(() => (isSignIn.value ? 'サインイン' : '登録'))
 const email = computed({
   get: () => (isSignIn.value ? signinEmail.value : signupEmail.value),
-  set: (value) => {
+  set: (value: string) => {
     if (isSignIn.value) {
       signinEmail.value = value
     } else {
@@ -28,7 +38,7 @@ const email = computed({
 })
 const password = computed({
   get: () => (isSignIn.value ? signinPassword.value : signupPassword.value),
-  set: (value) => {
+  set: (value: string) => {
     if (isSignIn.value) {
       signinPassword.value = value
     } else {
@@ -38,13 +48,13 @@ const password = computed({
 })
 const confirmPassword = computed({
   get: () => signupConfirmPassword.value,
-  set: (value) => {
+  set: (value: string) => {
     signupConfirmPassword.value = value
   },
 })
 const showPassword = computed({
   get: () => (isSignIn.value ? showSigninPassword.value : showSignupPassword.value),
-  set: (value) => {
+  set: (value: boolean) => {
     if (isSignIn.value) {
       showSigninPassword.value = value
     } else {
@@ -53,17 +63,25 @@ const showPassword = computed({
   },
 })
 
-const switchMode = (nextMode) => {
+const switchMode = (nextMode: Mode) => {
   mode.value = nextMode
   errorMessage.value = ''
+  successMessage.value = ''
 }
 
-const onSubmit = () => {
+const onSubmit = async () => {
   const currentEmail = isSignIn.value ? signinEmail.value : signupEmail.value
   const currentPassword = isSignIn.value ? signinPassword.value : signupPassword.value
 
+  successMessage.value = ''
+
   if (!currentEmail || !currentPassword) {
     errorMessage.value = 'メールアドレスとパスワードを入力してください。'
+    return
+  }
+
+  if (!isSignIn.value && !signupUsername.value.trim()) {
+    errorMessage.value = 'ユーザー名を入力してください。'
     return
   }
 
@@ -73,12 +91,49 @@ const onSubmit = () => {
   }
 
   errorMessage.value = ''
-  // TODO: API連携時に認証処理を実装
-  console.log('Auth submit:', {
-    mode: mode.value,
-    email: currentEmail,
-    rememberMe: signinRememberMe.value,
-  })
+
+  const endpoint = isSignIn.value ? '/api/auth/login' : '/api/auth/signup'
+  const payload = isSignIn.value
+    ? { email: currentEmail, password: currentPassword }
+    : {
+        username: signupUsername.value.trim(),
+        email: currentEmail,
+        password: currentPassword,
+      }
+
+  isSubmitting.value = true
+  try {
+    const response = await fetch(`http://localhost:8080${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const responseBody = (await response.json()) as AuthApiResponse | ErrorApiResponse
+    if (!response.ok) {
+      errorMessage.value = responseBody.message ?? '認証に失敗しました。'
+      return
+    }
+
+    successMessage.value =
+      responseBody.message ??
+      (isSignIn.value ? 'ログインに成功しました。' : 'ユーザー登録が完了しました。')
+
+    if (isSignIn.value) {
+      signinPassword.value = ''
+    } else {
+      signupUsername.value = ''
+      signupEmail.value = ''
+      signupPassword.value = ''
+      signupConfirmPassword.value = ''
+    }
+  } catch {
+    errorMessage.value = 'サーバーに接続できませんでした。バックエンド起動を確認してください。'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -109,6 +164,15 @@ const onSubmit = () => {
 
     <div class="auth-body">
       <form class="form" @submit.prevent="onSubmit">
+        <input
+          v-if="!isSignIn"
+          id="username"
+          v-model="signupUsername"
+          type="text"
+          autocomplete="username"
+          placeholder="ユーザー名をここに入力"
+        />
+
         <input
           id="email"
           v-model="email"
@@ -225,8 +289,11 @@ const onSubmit = () => {
         </label>
 
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+        <p v-if="successMessage" class="success">{{ successMessage }}</p>
 
-        <button class="submit" type="submit">{{ submitLabel }}</button>
+        <button class="submit" type="submit" :disabled="isSubmitting">
+          {{ isSubmitting ? '送信中...' : submitLabel }}
+        </button>
       </form>
 
       <p v-if="isSignIn" class="help-link">
@@ -405,6 +472,15 @@ input[type='text']:focus {
   text-align: left;
 }
 
+.success {
+  width: min(438px, 100%);
+  justify-self: center;
+  margin: -4px 0 0;
+  color: #1f6d34;
+  font-size: 14px;
+  text-align: left;
+}
+
 .submit {
   width: min(430px, 100%);
   height: 70px;
@@ -418,6 +494,11 @@ input[type='text']:focus {
   background: #e0d2ab;
   color: #3e3a35;
   cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.75;
+  cursor: wait;
 }
 
 .submit:hover {
