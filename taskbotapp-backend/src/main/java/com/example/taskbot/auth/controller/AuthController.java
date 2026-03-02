@@ -5,23 +5,40 @@ import com.example.taskbot.auth.dto.LoginRequest;
 import com.example.taskbot.auth.dto.SignUpRequest;
 import com.example.taskbot.auth.service.AuthService;
 import jakarta.validation.Valid;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
 public class AuthController {
 
     private final AuthService authService;
+    private final String frontendVerifyUrl;
 
-    public AuthController(AuthService authService) {
+    public AuthController(
+            AuthService authService,
+            @Value("${app.auth.frontend-verify-url:http://localhost:5173/auth/verify}") String frontendVerifyUrl
+    ) {
         this.authService = authService;
+        this.frontendVerifyUrl = frontendVerifyUrl;
     }
 
     @PostMapping("/signup")
@@ -34,5 +51,20 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    // Link from email. Redirects to Vue page.
+    @GetMapping("/verify")
+    public ResponseEntity<Void> verifyRedirect(@RequestParam("token") String token) {
+        String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
+        URI target = URI.create(frontendVerifyUrl + "?token=" + encodedToken);
+        return ResponseEntity.status(HttpStatus.FOUND).location(target).build();
+    }
+
+    // Called by Vue verify page.
+    @GetMapping("/verify-token")
+    public ResponseEntity<Map<String, String>> verifyToken(@RequestParam("token") String token) {
+        String message = authService.verifyEmail(token);
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

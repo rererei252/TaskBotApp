@@ -31,8 +31,23 @@ public class User {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @Column(name = "deleted_flag", nullable = false, columnDefinition = "boolean default false")
+    private boolean deletedFlag;
+
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
+    @Column(name = "verification_token", unique = true, length = 255)
+    private String verificationToken;
+
+    @Column(name = "verification_token_expires_at")
+    private OffsetDateTime verificationTokenExpiresAt;
+
+    @Column(name = "verified_at")
+    private OffsetDateTime verifiedAt;
 
     public Long getId() {
         return id;
@@ -88,5 +103,45 @@ public class User {
 
     public void setLastLoginAt(OffsetDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
+    }
+
+    public boolean isDeletedFlag() {
+        return deletedFlag;
+    }
+
+    public void setDeletedFlag(boolean deletedFlag) {
+        this.deletedFlag = deletedFlag;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public String getVerificationToken() {
+        return verificationToken;
+    }
+
+    public void setVerificationToken(String verificationToken) {
+        this.verificationToken = verificationToken;
+    }
+
+    public OffsetDateTime getVerificationTokenExpiresAt() {
+        return verificationTokenExpiresAt;
+    }
+
+    public void setVerificationTokenExpiresAt(OffsetDateTime verificationTokenExpiresAt) {
+        this.verificationTokenExpiresAt = verificationTokenExpiresAt;
+    }
+
+    public OffsetDateTime getVerifiedAt() {
+        return verifiedAt;
+    }
+
+    public void setVerifiedAt(OffsetDateTime verifiedAt) {
+        this.verifiedAt = verifiedAt;
     }
 }

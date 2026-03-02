@@ -33,6 +33,33 @@ TaskBotApp は、`Spring Boot` バックエンドと `Vue 3 + Vite` フロント
 
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `GET /api/auth/verify?token=...`
+
+## メール設定の恒久化（Gmail / 完全無料）
+
+`taskbotapp-backend/src/main/resources/application-local.properties` を作成して、SMTP情報を保存します。
+
+1. テンプレートをコピー
+
+```powershell
+cd taskbotapp-backend
+Copy-Item src/main/resources/application-local.properties.example src/main/resources/application-local.properties
+```
+
+2. `application-local.properties` の値を編集
+   - `spring.mail.username` に Gmail アドレス
+   - `spring.mail.password` に Google アプリパスワード（16桁）
+   - `app.auth.mail-from` に同じ Gmail アドレス
+
+3. Google アカウント側で 2 段階認証を有効化し、アプリパスワードを発行
+   - 通常のログインパスワードは SMTP 送信に使えません
+
+4. `local` プロファイルで起動
+
+```powershell
+cd taskbotapp-backend
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
 
 ### signup リクエスト例
 

@@ -1,14 +1,14 @@
-﻿package com.example.taskbot.auth.dto;
+package com.example.taskbot.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public record LoginRequest(
-        @NotBlank(message = "メールアドレスは必須です")
-        @Email(message = "メールアドレス形式が不正です")
+        @NotBlank(message = "Email is required")
+        @Email(message = "Email format is invalid")
         String email,
 
-        @NotBlank(message = "パスワードは必須です")
+        @NotBlank(message = "Password is required")
         String password
 ) {
 }

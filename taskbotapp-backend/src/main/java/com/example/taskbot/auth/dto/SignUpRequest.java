@@ -1,4 +1,4 @@
-﻿package com.example.taskbot.auth.dto;
+package com.example.taskbot.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -6,19 +6,19 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record SignUpRequest(
-        @NotBlank(message = "ユーザー名は必須です")
-        @Size(max = 50, message = "ユーザー名は50文字以内で入力してください")
+        @NotBlank(message = "Username is required")
+        @Size(max = 50, message = "Username must be 50 chars or less")
         String username,
 
-        @NotBlank(message = "メールアドレスは必須です")
-        @Email(message = "メールアドレス形式が不正です")
-        @Size(max = 255, message = "メールアドレスが長すぎます")
+        @NotBlank(message = "Email is required")
+        @Email(message = "Email format is invalid")
+        @Size(max = 255, message = "Email is too long")
         String email,
 
-        @NotBlank(message = "パスワードは必須です")
-        @Size(min = 8, max = 20, message = "パスワードは8〜20文字で入力してください")
+        @NotBlank(message = "Password is required")
+        @Size(min = 8, max = 20, message = "Password must be 8-20 chars")
         @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d._-]{8,20}$",
-                message = "パスワードは英字と数字を含み、使用可能記号は . _ - のみです")
+                message = "Password must include letters and numbers; allowed symbols are . _ -")
         String password
 ) {
 }

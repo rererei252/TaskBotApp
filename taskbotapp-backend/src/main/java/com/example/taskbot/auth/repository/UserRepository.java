@@ -6,7 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    boolean existsByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+    boolean existsByEmailIgnoreCaseAndDeletedFlagFalse(String email);
 
-    Optional<User> findByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    Optional<User> findByEmailIgnoreCaseAndDeletedFlagFalse(String email);
+
+    Optional<User> findByVerificationTokenAndDeletedFlagFalse(String verificationToken);
 }

@@ -1,4 +1,4 @@
-﻿package com.example.taskbot.common;
+package com.example.taskbot.common;
 
 import com.example.taskbot.auth.exception.AuthException;
 import jakarta.validation.ConstraintViolationException;
@@ -27,9 +27,9 @@ public class GlobalExceptionHandler {
                     if (error instanceof FieldError fieldError) {
                         return fieldError.getDefaultMessage();
                     }
-                    return "入力値が不正です";
+                    return "Invalid input";
                 })
-                .orElse("入力値が不正です");
+                .orElse("Invalid input");
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(message, OffsetDateTime.now()));
@@ -38,6 +38,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("入力値が不正です", OffsetDateTime.now()));
+                .body(new ErrorResponse("Invalid input", OffsetDateTime.now()));
     }
 }

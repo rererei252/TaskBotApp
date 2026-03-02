@@ -111,7 +111,16 @@ const onSubmit = async () => {
       body: JSON.stringify(payload),
     })
 
-    const responseBody = (await response.json()) as AuthApiResponse | ErrorApiResponse
+    const raw = await response.text()
+    let responseBody: AuthApiResponse | ErrorApiResponse = {}
+    if (raw) {
+      try {
+        responseBody = JSON.parse(raw) as AuthApiResponse | ErrorApiResponse
+      } catch {
+        responseBody = { message: raw }
+      }
+    }
+
     if (!response.ok) {
       errorMessage.value = responseBody.message ?? '認証に失敗しました。'
       return
@@ -129,7 +138,11 @@ const onSubmit = async () => {
       signupPassword.value = ''
       signupConfirmPassword.value = ''
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) {
+      errorMessage.value = `通信エラー: ${error.message}`
+      return
+    }
     errorMessage.value = 'サーバーに接続できませんでした。バックエンド起動を確認してください。'
   } finally {
     isSubmitting.value = false
@@ -300,6 +313,7 @@ const onSubmit = async () => {
         <a href="#">ログインできない方はこちら</a>
       </p>
     </div>
+
   </section>
 </template>
 
