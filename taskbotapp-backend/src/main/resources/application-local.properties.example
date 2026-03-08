@@ -1,0 +1,12 @@
+﻿# Local profile settings (Gmail SMTP / fully free setup)
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=YOUR_GMAIL_ADDRESS
+spring.mail.password=YOUR_GOOGLE_APP_PASSWORD_16_CHARS
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+app.auth.mail-from=YOUR_GMAIL_ADDRESS
+app.auth.verify-base-url=http://localhost:5173/auth/verify
+app.auth.verification-expire-hours=24
