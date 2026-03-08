@@ -310,7 +310,7 @@ const onSubmit = async () => {
       </form>
 
       <p v-if="isSignIn" class="help-link">
-        <a href="#">ログインできない方はこちら</a>
+        <a href="/auth/forgot-password">ログインできない方はこちら</a>
       </p>
     </div>
 
@@ -557,3 +557,4 @@ input[type='text']:focus {
   }
 }
 </style>
+

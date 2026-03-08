@@ -2,6 +2,8 @@ package com.example.taskbot.auth.controller;
 
 import com.example.taskbot.auth.dto.AuthResponse;
 import com.example.taskbot.auth.dto.LoginRequest;
+import com.example.taskbot.auth.dto.PasswordResetConfirmRequest;
+import com.example.taskbot.auth.dto.PasswordResetRequest;
 import com.example.taskbot.auth.dto.SignUpRequest;
 import com.example.taskbot.auth.service.AuthService;
 import jakarta.validation.Valid;
@@ -53,7 +55,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Link from email. Redirects to Vue page.
     @GetMapping("/verify")
     public ResponseEntity<Void> verifyRedirect(@RequestParam("token") String token) {
         String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
@@ -61,10 +62,27 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.FOUND).location(target).build();
     }
 
-    // Called by Vue verify page.
     @GetMapping("/verify-token")
     public ResponseEntity<Map<String, String>> verifyToken(@RequestParam("token") String token) {
         String message = authService.verifyEmail(token);
         return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<AuthResponse> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        AuthResponse response = authService.requestPasswordReset(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/password-reset/validate")
+    public ResponseEntity<Map<String, String>> validatePasswordResetToken(@RequestParam("token") String token) {
+        String message = authService.validatePasswordResetToken(token);
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<AuthResponse> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        AuthResponse response = authService.confirmPasswordReset(request);
+        return ResponseEntity.ok(response);
     }
 }
