@@ -1,13 +1,10 @@
-<script setup>
+﻿<script setup lang="ts">
 import AppHeader from '../../shared/components/AppHeader.vue'
 import AppFooter from '../../shared/components/AppFooter.vue'
 
-defineProps({
-  showNav: {
-    type: Boolean,
-    default: true,
-  },
-})
+const { showNav = true } = defineProps<{
+  showNav?: boolean
+}>()
 </script>
 
 <template>
