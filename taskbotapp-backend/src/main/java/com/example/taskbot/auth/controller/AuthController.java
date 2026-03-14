@@ -6,6 +6,8 @@ import com.example.taskbot.auth.dto.PasswordResetConfirmRequest;
 import com.example.taskbot.auth.dto.PasswordResetRequest;
 import com.example.taskbot.auth.dto.SignUpRequest;
 import com.example.taskbot.auth.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -28,7 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
         originPatterns = {
                 "http://localhost:*",
                 "http://127.0.0.1:*"
-        }
+        },
+        allowCredentials = "true"
 )
 public class AuthController {
 
@@ -50,8 +53,16 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest
+    ) {
         AuthResponse response = authService.login(request);
+
+        HttpSession session = servletRequest.getSession(true);
+        session.setAttribute("userId", response.userId());
+        session.setAttribute("email", response.email());
+
         return ResponseEntity.ok(response);
     }
 
@@ -85,4 +96,22 @@ public class AuthController {
         AuthResponse response = authService.confirmPasswordReset(request);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> me(HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AuthResponse response = authService.getCurrentUser(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok().build();
+    }
+
 }

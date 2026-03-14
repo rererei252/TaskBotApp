@@ -250,4 +250,11 @@ public class AuthService {
             // 存在有無の推測を防ぐため、レスポンスは固定する。
         }
     }
+
+    public AuthResponse getCurrentUser(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new AuthException("ユーザーが見つかりません。"));
+        return new AuthResponse(user.getId(), user.getUsername(), user.getEmail(), user.getLastLoginAt(), "OK");
+    }
+
 }

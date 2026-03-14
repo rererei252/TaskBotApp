@@ -105,6 +105,7 @@ const onSubmit = async () => {
   try {
     const response = await fetch(`http://localhost:8080${endpoint}`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -131,7 +132,9 @@ const onSubmit = async () => {
       (isSignIn.value ? 'ログインに成功しました。' : 'ユーザー登録が完了しました。')
 
     if (isSignIn.value) {
+      window.location.href = '/top'
       signinPassword.value = ''
+      return
     } else {
       signupUsername.value = ''
       signupEmail.value = ''
@@ -557,4 +560,3 @@ input[type='text']:focus {
   }
 }
 </style>
-
