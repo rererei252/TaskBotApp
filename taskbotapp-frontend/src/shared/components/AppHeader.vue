@@ -10,6 +10,7 @@ type MeResponse = {
 }
 
 const username = ref('ユーザ名')
+const isLoggingOut = ref(false)
 
 const fetchCurrentUser = async (): Promise<void> => {
   if (!showNav) return
@@ -30,6 +31,20 @@ const fetchCurrentUser = async (): Promise<void> => {
   }
 }
 
+const logout = async (): Promise<void> => {
+  if (isLoggingOut.value) return
+
+  isLoggingOut.value = true
+  try {
+    await fetch('http://localhost:8080/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } finally {
+    window.location.href = '/'
+  }
+}
+
 onMounted(() => {
   void fetchCurrentUser()
 })
@@ -38,7 +53,7 @@ onMounted(() => {
 <template>
   <header class="header">
     <div class="inner">
-      <strong>タスク缶</strong>
+      <a class="brand" href="/top"><strong>タスク缶</strong></a>
       <nav v-if="showNav" class="nav" aria-label="global navigation">
         <a href="/top">Top</a>
         <a href="#">タスク一覧</a>
@@ -49,7 +64,7 @@ onMounted(() => {
           </button>
           <div class="dropdown">
             <a href="/account">アカウント設定</a>
-            <button type="button" @click="$emit('logout')">ログアウト</button>
+            <button type="button" @click="logout">ログアウト</button>
           </div>
         </div>
       </nav>
@@ -76,6 +91,10 @@ strong {
   font-size: 30px;
   font-weight: 700;
   color: #5c5b5b;
+}
+
+.brand {
+  text-decoration: none;
 }
 
 .nav {
