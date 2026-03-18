@@ -9,13 +9,14 @@ const email = ref<string>('')
 const isSubmitting = ref<boolean>(false)
 const message = ref<string>('')
 const error = ref<string>('')
+const cameFromAccount = new URLSearchParams(window.location.search).get('from') === 'account'
 
 const goBack = (): void => {
-  if (window.history.length > 1) {
-    window.history.back()
-    return
+  if (cameFromAccount) {
+    window.location.href = '/account'
+  } else {
+    window.location.href = '/'
   }
-  window.location.href = '/'
 }
 
 const onSubmit = async (): Promise<void> => {
@@ -79,7 +80,7 @@ const onSubmit = async (): Promise<void> => {
       </form>
 
       <button class="back-button" type="button" @click="goBack">
-        ログイン画面へ戻る
+        {{ cameFromAccount ? 'アカウント管理へ戻る' : 'ログイン画面へ戻る' }}
       </button>
     </article>
   </div>

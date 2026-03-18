@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -121,6 +122,21 @@ public class AccountService {
         } catch (IOException ex) {
             throw new AuthException("画像の読み込みに失敗しました。");
         }
+    }
+
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException("ユーザーが見つかりません。"));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        String archivedEmail = "deleted+" + userId + "." + now.toEpochSecond() + "@taskkan.local";
+        user.setEmail(archivedEmail);
+        user.setDeletedFlag(true);
+        user.setDeletedAt(now);
+        user.setProfileImageUrl(null);
+        user.setProfileMessage(null);
+        userRepository.save(user);
     }
 
     private String getExtension(String originalFileName) {

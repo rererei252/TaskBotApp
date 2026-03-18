@@ -21,8 +21,12 @@ const email = ref('')
 const message = ref('')
 const isLoading = ref(false)
 const isSaving = ref(false)
+const isLoggingOut = ref(false)
+const isWithdrawing = ref(false)
 const error = ref('')
 const success = ref('')
+const accountStatus = ref('')
+const accountError = ref('')
 
 const fetchProfile = async (): Promise<void> => {
   isLoading.value = true
@@ -88,6 +92,50 @@ const onSaveProfile = async (): Promise<void> => {
     error.value = '保存に失敗しました。'
   } finally {
     isSaving.value = false
+  }
+}
+
+const onMovePasswordChange = (): void => {
+  window.location.href = '/auth/forgot-password?from=account'
+}
+
+const onLogout = async (): Promise<void> => {
+  if (isLoggingOut.value) return
+
+  isLoggingOut.value = true
+  accountError.value = ''
+  accountStatus.value = ''
+  try {
+    await fetch('http://localhost:8080/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } finally {
+    window.location.href = '/'
+  }
+}
+
+const onWithdraw = async (): Promise<void> => {
+  if (isWithdrawing.value) return
+
+  const confirmed = window.confirm('退会するとアカウントは利用できなくなります。退会しますか？')
+  if (!confirmed) return
+
+  isWithdrawing.value = true
+  accountError.value = ''
+  accountStatus.value = ''
+  try {
+    const res = await fetch('http://localhost:8080/api/account/withdraw', {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('failed')
+
+    window.location.href = '/'
+  } catch {
+    accountError.value = '退会に失敗しました。時間をおいて再度お試しください。'
+  } finally {
+    isWithdrawing.value = false
   }
 }
 
@@ -189,7 +237,32 @@ const onPickImage = (event: Event): void => {
           {{ isSaving ? '保存中...' : '保存' }}
         </button>
       </div>
-      <div v-else-if="selectedMenu === 'account'">アカウント管理の中身</div>
+      <div v-else-if="selectedMenu === 'account'" class="account-panel">
+        <p v-if="accountError" class="status status-error">{{ accountError }}</p>
+        <p v-if="accountStatus" class="status status-success">{{ accountStatus }}</p>
+
+        <div class="account-row">
+          <span>パスワード変更：</span>
+          <div class="account-action-wrap">
+            <button type="button" class="account-action" @click="onMovePasswordChange">変更</button>
+            <p class="account-note">（パスワード再設定画面へ移動します）</p>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <span>ログアウト：</span>
+          <button type="button" class="account-action" :disabled="isLoggingOut" @click="onLogout">
+            {{ isLoggingOut ? '処理中...' : 'ログアウト' }}
+          </button>
+        </div>
+
+        <div class="account-row">
+          <span>退会処理：</span>
+          <button type="button" class="account-action account-action-danger" :disabled="isWithdrawing" @click="onWithdraw">
+            {{ isWithdrawing ? '処理中...' : '退会' }}
+          </button>
+        </div>
+      </div>
       <div v-else>通知設定の中身</div>
     </section>
   </section>
@@ -199,10 +272,10 @@ const onPickImage = (event: Event): void => {
 .account-page {
   min-height: calc(100vh - 140px);
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr) 240px;
   gap: 28px;
   padding-top: 14px;
-  padding-left: 20px;
+  padding-inline: 20px;
 }
 
 .sidebar {
@@ -247,6 +320,7 @@ const onPickImage = (event: Event): void => {
 }
 
 .content {
+  grid-column: 2;
   min-height: 420px;
   display: flex;
   justify-content: center;
@@ -371,6 +445,69 @@ const onPickImage = (event: Event): void => {
 }
 
 .save-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.account-panel {
+  width: min(780px, 100%);
+  padding-top: 120px;
+  display: grid;
+  justify-items: center;
+  gap: 24px;
+}
+
+.account-row {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: 260px 220px;
+  align-items: start;
+  column-gap: 12px;
+  margin-inline: auto;
+}
+
+.account-row span {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 20px;
+  line-height: 1;
+  color: #1f1f1f;
+}
+
+.account-note {
+  margin: 6px 0 0;
+  width: 220px;
+  text-align: left;
+  font-size: 12px;
+  color: #4f4b44;
+}
+
+.account-action-wrap {
+  display: grid;
+  justify-items: start;
+}
+
+.account-action {
+  width: 220px;
+  height: 54px;
+  border: 1px solid #686156;
+  border-radius: 10px;
+  background: #e0d2ab;
+  color: #3e3a35;
+  font: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.account-action-danger {
+  background: #e0d2ab;
+}
+
+.account-action:disabled {
   opacity: 0.7;
   cursor: wait;
 }

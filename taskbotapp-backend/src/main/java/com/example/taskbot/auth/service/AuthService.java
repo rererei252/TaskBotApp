@@ -60,12 +60,15 @@ public class AuthService {
         OffsetDateTime now = OffsetDateTime.now();
         String verificationToken = UUID.randomUUID().toString();
 
-        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElseGet(User::new);
-
-        if (user.getId() != null && !user.isDeletedFlag() && user.isEmailVerified()) {
-            throw new AuthException("このメールアドレスは既に登録されています。");
+        User existing = userRepository.findByEmailIgnoreCase(normalizedEmail).orElse(null);
+        if (existing != null) {
+            if (!existing.isDeletedFlag()) {
+                throw new AuthException("このメールアドレスは既に登録されています。");
+            }
+            archiveDeletedUserEmail(existing, now);
         }
+
+        User user = new User();
 
         user.setUsername(request.username().trim());
         user.setEmail(normalizedEmail);
@@ -77,6 +80,8 @@ public class AuthService {
         user.setVerificationToken(verificationToken);
         user.setVerificationTokenExpiresAt(now.plusHours(verificationExpireHours));
         user.setVerifiedAt(null);
+        user.setProfileMessage(null);
+        user.setProfileImageUrl(null);
 
         User savedUser = userRepository.save(user);
         sendVerificationMail(savedUser.getEmail(), verificationToken);
@@ -88,6 +93,13 @@ public class AuthService {
                 savedUser.getLastLoginAt(),
                 "認証メールを送信しました。メール内のURLを開いて登録を完了してください。"
         );
+    }
+
+    private void archiveDeletedUserEmail(User deletedUser, OffsetDateTime now) {
+        Long userId = deletedUser.getId() == null ? 0L : deletedUser.getId();
+        String archivedEmail = "deleted+" + userId + "." + now.toEpochSecond() + "@taskkan.local";
+        deletedUser.setEmail(archivedEmail);
+        userRepository.save(deletedUser);
     }
 
     @Transactional
