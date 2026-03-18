@@ -7,7 +7,11 @@ import jakarta.validation.constraints.Size;
 
 public record SignUpRequest(
         @NotBlank(message = "Username is required")
-        @Size(max = 50, message = "Username must be 50 chars or less")
+        @Size(max = 20, message = "Username must be 20 chars or less")
+        @Pattern(
+                regexp = "^[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}A-Za-z\\s]+$",
+                message = "Username must contain only Japanese or English letters"
+        )
         String username,
 
         @NotBlank(message = "Email is required")

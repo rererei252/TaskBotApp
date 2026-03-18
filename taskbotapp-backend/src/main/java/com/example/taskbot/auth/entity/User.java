@@ -49,6 +49,12 @@ public class User {
     @Column(name = "verified_at")
     private OffsetDateTime verifiedAt;
 
+    @Column(name = "profile_message")
+    private String profileMessage;
+
+    @Column(name = "profile_image_url", length = 500)
+    private String profileImageUrl;
+
     public Long getId() {
         return id;
     }
@@ -143,5 +149,21 @@ public class User {
 
     public void setVerifiedAt(OffsetDateTime verifiedAt) {
         this.verifiedAt = verifiedAt;
+    }
+
+    public String getProfileMessage() {
+        return profileMessage;
+    }
+
+    public void setProfileMessage(String profileMessage) {
+        this.profileMessage = profileMessage;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 }

@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmailIgnoreCaseAndDeletedFlagFalse(String email);
+    
+    boolean existsByEmailIgnoreCaseAndDeletedFlagFalseAndIdNot(String email, Long id);
 
     Optional<User> findByEmailIgnoreCase(String email);
 

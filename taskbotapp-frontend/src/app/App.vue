@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import AuthLayout from './layouts/AuthLayout.vue'
 import DefaultLayout from './layouts/DefaultLayout.vue'
 import TopPage from '../features/home/pages/TopPage.vue'
+import AccountPage from '../features/account/pages/AccountPage.vue'
 import LoginPage from '../features/auth/pages/LoginPage.vue'
 import VerifyPage from '../features/auth/pages/VerifyPage.vue'
 import ForgotPassword from '../features/auth/pages/ForgotPassword.vue'
@@ -11,6 +12,7 @@ import ResetPasswordPage from '../features/auth/pages/ResetPasswordPage.vue'
 const isCheckingSession = ref(true)
 const path = computed(() => window.location.pathname)
 const isTopPath = computed(() => path.value === '/top')
+const isAccountPath = computed(() => path.value === '/account')
 const isVerifyPath = computed(() => path.value.startsWith('/auth/verify'))
 const isForgotPasswordPath = computed(() => path.value === '/auth/forgot-password')
 const isResetPasswordPath = computed(() => path.value === '/auth/password-reset')
@@ -29,11 +31,11 @@ const checkSession = async (): Promise<void> => {
       return
     }
 
-    if (window.location.pathname === '/top') {
+    if (window.location.pathname === '/top' || window.location.pathname === '/account') {
       window.location.href = '/'
     }
   } catch {
-    if (window.location.pathname === '/top') {
+    if (window.location.pathname === '/top' || window.location.pathname === '/account') {
       window.location.href = '/'
     }
   } finally {
@@ -52,6 +54,10 @@ onMounted(() => {
   <template v-else>
     <DefaultLayout v-if="isTopPath">
       <TopPage />
+    </DefaultLayout>
+
+    <DefaultLayout v-else-if="isAccountPath" :full-width="true">
+      <AccountPage />
     </DefaultLayout>
 
     <AuthLayout v-else :show-nav="false">
