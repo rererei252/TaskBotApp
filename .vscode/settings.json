@@ -6,5 +6,6 @@
       "default": true
     }
   ],
-  "java.debug.settings.console": "integratedTerminal"
+  "java.debug.settings.console": "integratedTerminal",
+  "java.compile.nullAnalysis.mode": "automatic"
 }

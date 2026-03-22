@@ -52,7 +52,7 @@ onMounted(() => {
   <div v-if="isCheckingSession" class="booting" />
 
   <template v-else>
-    <DefaultLayout v-if="isTopPath">
+    <DefaultLayout v-if="isTopPath" :full-width="true">
       <TopPage />
     </DefaultLayout>
 

@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication(scanBasePackages = "com.example.taskbot")
 @AutoConfigurationPackage(basePackages = "com.example.taskbot")
-@EnableJpaRepositories(basePackages = "com.example.taskbot.auth.repository")
+@EnableJpaRepositories(basePackages = "com.example.taskbot")
 public class TaskbotApplication {
 
     public static void main(String[] args) {
