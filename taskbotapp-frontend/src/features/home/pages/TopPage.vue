@@ -16,11 +16,16 @@ type CalendarEvent = {
 }
 
 type Priority = 'low' | 'medium' | 'high'
+type TaskStatus = 'todo' | 'doing' | 'done'
+type TaskFilter = 'all' | 'open' | 'done'
 type TaskForm = {
   title: string
-  startAt: string
-  dueAt: string
+  startDate: string
+  startTime: string
+  dueDate: string
+  dueTime: string
   priority: Priority
+  status: TaskStatus
   detail: string
   locationUrl: string
 }
@@ -32,7 +37,7 @@ type TaskItem = {
   startAt: string
   dueAt: string
   priority: Priority
-  status: 'todo' | 'doing' | 'done'
+  status: TaskStatus
   detail: string | null
   locationUrl: string | null
   createdAt: string
@@ -41,6 +46,7 @@ type TaskItem = {
 
 const labels = {
   todayTasks: '\u672c\u65e5\u306e\u30bf\u30b9\u30af',
+  activeTasks: '\u671f\u9593\u5185\u30bf\u30b9\u30af',
   addTask: '\u30bf\u30b9\u30af\u8ffd\u52a0',
   editTask: '\u30bf\u30b9\u30af\u7de8\u96c6',
   goToday: '\u672c\u65e5\u3078',
@@ -55,16 +61,27 @@ const labels = {
   startAt: '\u30bf\u30b9\u30af\u958b\u59cb\u65e5\u6642',
   dueAt: '\u30bf\u30b9\u30af\u7de0\u5207\u65e5\u6642',
   priority: '\u512a\u5148\u5ea6',
+  status: '\u30b9\u30c6\u30fc\u30bf\u30b9',
   locationUrl: '\u958b\u50ac\u5834\u6240URL',
   detail: '\u30bf\u30b9\u30af\u8a73\u7d30',
   cancel: '\u30ad\u30e3\u30f3\u30bb\u30eb',
+  delete: '\u524a\u9664',
   save: '\u4fdd\u5b58',
   update: '\u66f4\u65b0',
   saving: '\u4fdd\u5b58\u4e2d...',
   updating: '\u66f4\u65b0\u4e2d...',
+  deleting: '\u524a\u9664\u4e2d...',
+  saveSuccess: '\u4fdd\u5b58\u3067\u304d\u307e\u3057\u305f',
+  deleteSuccess: '\u524a\u9664\u3067\u304d\u307e\u3057\u305f',
   priorityLow: '\u4f4e',
   priorityMedium: '\u4e2d',
   priorityHigh: '\u9ad8',
+  statusTodo: '\u672a\u7740\u624b',
+  statusDoing: '\u9032\u884c\u4e2d',
+  statusDone: '\u5b8c\u4e86',
+  filterAll: '\u3059\u3079\u3066',
+  filterOpen: '\u672a\u5b8c\u4e86',
+  filterDone: '\u5b8c\u4e86',
   locationPlaceholder: 'https://teams.microsoft.com/...',
   close: '\u9589\u3058\u308b',
   invalidUrl: 'URL\u306f https:// \u5f62\u5f0f\u3067\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044',
@@ -72,7 +89,9 @@ const labels = {
   requiredStart: '\u958b\u59cb\u65e5\u6642\u306f\u5fc5\u9808\u3067\u3059',
   requiredDue: '\u7de0\u5207\u65e5\u6642\u306f\u5fc5\u9808\u3067\u3059',
   invalidRange: '\u7de0\u5207\u65e5\u6642\u306f\u958b\u59cb\u65e5\u6642\u4ee5\u964d\u306b\u3057\u3066\u304f\u3060\u3055\u3044',
-}
+  deleteConfirm: '\u3053\u306e\u30bf\u30b9\u30af\u3092\u524a\u9664\u3057\u307e\u3059\u304b\uff1f',
+  deleteFailed: '\u524a\u9664\u306b\u5931\u6557\u3057\u307e\u3057\u305f',
+} 
 
 const weekHeaders = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
 const calendarBaseDate = ref(new Date())
@@ -108,20 +127,27 @@ const selectedTaskTitle = computed(() => {
     selected.getMonth() === now.getMonth() &&
     selected.getDate() === now.getDate()
 
-  return isToday ? labels.todayTasks : `${month}\u6708${day}\u65e5\u306e\u30bf\u30b9\u30af`
+  return isToday ? labels.todayTasks : `${month}\u6708${day}\u65e5\u306e\u5f53\u65e5\u30bf\u30b9\u30af`
 })
 const isTaskModalOpen = ref(false)
 const editingTaskId = ref<number | null>(null)
 const isSavingTask = ref(false)
+const isDeletingTask = ref(false)
 const taskFormError = ref('')
+const successNotice = ref('')
 const tasksByMonth = ref<Record<string, TaskItem[]>>({})
 const isLoadingTasks = ref(false)
 const taskLoadError = ref('')
+const selectedTaskFilter = ref<TaskFilter>('open')
+const activeTaskFilter = ref<TaskFilter>('open')
 const taskForm = ref<TaskForm>({
   title: '',
-  startAt: '',
-  dueAt: '',
+  startDate: '',
+  startTime: '',
+  dueDate: '',
+  dueTime: '',
   priority: 'medium',
+  status: 'todo',
   detail: '',
   locationUrl: '',
 })
@@ -133,6 +159,9 @@ const taskSubmitLabel = computed(() => {
   }
   return isEditingTask.value ? labels.update : labels.save
 })
+const taskDeleteLabel = computed(() => (isDeletingTask.value ? labels.deleting : labels.delete))
+
+let successNoticeTimer: ReturnType<typeof setTimeout> | null = null
 
 const toMonthKey = (year: number, month: number): string => `${year}-${String(month).padStart(2, '0')}`
 
@@ -145,28 +174,68 @@ const monthKeyFromDateKey = (dateKey: string): string => {
 const currentMonthKey = computed(() =>
   toMonthKey(calendarBaseDate.value.getFullYear(), calendarBaseDate.value.getMonth() + 1)
 )
+const todayMonthKey = computed(() => {
+  const now = new Date()
+  return toMonthKey(now.getFullYear(), now.getMonth() + 1)
+})
 
 const currentMonthTasks = computed<TaskItem[]>(() => tasksByMonth.value[currentMonthKey.value] ?? [])
 
-const selectedTasks = computed<TaskItem[]>(() => {
+const filterTasksByStatus = (tasks: TaskItem[], filter: TaskFilter): TaskItem[] => {
+  if (filter === 'done') {
+    return tasks.filter((task) => task.status === 'done')
+  }
+  if (filter === 'open') {
+    return tasks.filter((task) => task.status !== 'done')
+  }
+  return tasks
+}
+
+const selectedDateTasks = computed<TaskItem[]>(() => {
   const monthKey = monthKeyFromDateKey(selectedDateKey.value)
   const tasks = tasksByMonth.value[monthKey] ?? []
 
-  const [yearStr, monthStr, dayStr] = selectedDateKey.value.split('-')
-  const year = Number(yearStr)
-  const month = Number(monthStr)
-  const day = Number(dayStr)
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return []
-
-  const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0).getTime()
-  const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999).getTime()
-
   return tasks.filter((task) => {
-    const start = new Date(task.startAt).getTime()
-    const due = new Date(task.dueAt).getTime()
-    return Number.isFinite(start) && Number.isFinite(due) && start <= dayEnd && due >= dayStart
+    const startDateKey = toDateKey(new Date(task.startAt))
+    const dueDateKey = toDateKey(new Date(task.dueAt))
+    return startDateKey === selectedDateKey.value && dueDateKey === selectedDateKey.value
   })
 })
+
+const selectedTasks = computed<TaskItem[]>(() => filterTasksByStatus(selectedDateTasks.value, selectedTaskFilter.value))
+
+const activePeriodTasks = computed<TaskItem[]>(() => {
+  const selectedDate = new Date(selectedDateKey.value)
+  const selectedStart = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate()
+  ).getTime()
+  const selectedEnd = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate() + 1
+  ).getTime() - 1
+
+  return (tasksByMonth.value[monthKeyFromDateKey(selectedDateKey.value)] ?? []).filter((task) => {
+    const start = new Date(task.startAt).getTime()
+    const due = new Date(task.dueAt).getTime()
+    const startDateKey = toDateKey(new Date(task.startAt))
+    const dueDateKey = toDateKey(new Date(task.dueAt))
+    const isSingleDaySelectedTask =
+      startDateKey === selectedDateKey.value && dueDateKey === selectedDateKey.value
+
+    return (
+      Number.isFinite(start) &&
+      Number.isFinite(due) &&
+      start <= selectedEnd &&
+      due >= selectedStart &&
+      !isSingleDaySelectedTask
+    )
+  })
+})
+
+const activeTasks = computed<TaskItem[]>(() => filterTasksByStatus(activePeriodTasks.value, activeTaskFilter.value))
 
 const priorityToChipColor = (priority: Priority): CalendarEvent['color'] => {
   if (priority === 'high') return 'orange'
@@ -233,6 +302,14 @@ const toDateTimeLocalValue = (isoString: string): string => {
   const hour = String(date.getHours()).padStart(2, '0')
   const minute = String(date.getMinutes()).padStart(2, '0')
   return `${year}-${month}-${day}T${hour}:${minute}`
+}
+
+const toDateValue = (isoString: string): string => toDateTimeLocalValue(isoString).slice(0, 10)
+
+const toTimeValue = (isoString: string): string => toDateTimeLocalValue(isoString).slice(11, 16)
+
+const composeIsoString = (dateValue: string, timeValue: string): string => {
+  return new Date(`${dateValue}T${timeValue}`).toISOString()
 }
 
 const loadTasksForMonth = async (year: number, month: number, force = false): Promise<void> => {
@@ -319,9 +396,12 @@ const resetTaskForm = (): void => {
   editingTaskId.value = null
   taskForm.value = {
     title: '',
-    startAt: '',
-    dueAt: '',
+    startDate: selectedDateKey.value,
+    startTime: '',
+    dueDate: selectedDateKey.value,
+    dueTime: '',
     priority: 'medium',
+    status: 'todo',
     detail: '',
     locationUrl: '',
   }
@@ -332,9 +412,12 @@ const openTaskModal = (task?: TaskItem): void => {
     editingTaskId.value = task.id
     taskForm.value = {
       title: task.title,
-      startAt: toDateTimeLocalValue(task.startAt),
-      dueAt: toDateTimeLocalValue(task.dueAt),
+      startDate: toDateValue(task.startAt),
+      startTime: toTimeValue(task.startAt),
+      dueDate: toDateValue(task.dueAt),
+      dueTime: toTimeValue(task.dueAt),
       priority: task.priority,
+      status: task.status,
       detail: task.detail ?? '',
       locationUrl: task.locationUrl ?? '',
     }
@@ -354,25 +437,48 @@ const onClickTodayTask = (task: TaskItem): void => {
   openTaskModal(task)
 }
 
+const showSuccessNotice = (message: string): void => {
+  successNotice.value = message
+
+  if (successNoticeTimer) {
+    clearTimeout(successNoticeTimer)
+  }
+
+  successNoticeTimer = setTimeout(() => {
+    successNotice.value = ''
+    successNoticeTimer = null
+  }, 2200)
+}
+
 const closeTaskModal = (): void => {
-  if (isSavingTask.value) return
+  if (isSavingTask.value || isDeletingTask.value) return
   isTaskModalOpen.value = false
   taskFormError.value = ''
   resetTaskForm()
 }
 
+const forceCloseTaskModal = (): void => {
+  isTaskModalOpen.value = false
+  taskFormError.value = ''
+  resetTaskForm()
+}
+
+const closeTaskModalFromUi = (): void => {
+  closeTaskModal()
+}
+
 const onOverlayClick = (event: MouseEvent): void => {
   if (event.target !== event.currentTarget) return
-  closeTaskModal()
+  closeTaskModalFromUi()
 }
 
 const validateTaskForm = (): string => {
   if (!taskForm.value.title.trim()) return labels.requiredTitle
-  if (!taskForm.value.startAt) return labels.requiredStart
-  if (!taskForm.value.dueAt) return labels.requiredDue
+  if (!taskForm.value.startDate || !taskForm.value.startTime) return labels.requiredStart
+  if (!taskForm.value.dueDate || !taskForm.value.dueTime) return labels.requiredDue
 
-  const start = new Date(taskForm.value.startAt).getTime()
-  const due = new Date(taskForm.value.dueAt).getTime()
+  const start = new Date(`${taskForm.value.startDate}T${taskForm.value.startTime}`).getTime()
+  const due = new Date(`${taskForm.value.dueDate}T${taskForm.value.dueTime}`).getTime()
   if (Number.isFinite(start) && Number.isFinite(due) && due < start) return labels.invalidRange
 
   const url = taskForm.value.locationUrl.trim()
@@ -389,7 +495,7 @@ const validateTaskForm = (): string => {
 }
 
 const onSaveTask = async (): Promise<void> => {
-  if (isSavingTask.value) return
+  if (isSavingTask.value || isDeletingTask.value) return
 
   const errorMessage = validateTaskForm()
   if (errorMessage) {
@@ -401,8 +507,8 @@ const onSaveTask = async (): Promise<void> => {
   taskFormError.value = ''
 
   try {
-    const startAtIso = new Date(taskForm.value.startAt).toISOString()
-    const dueAtIso = new Date(taskForm.value.dueAt).toISOString()
+    const startAtIso = composeIsoString(taskForm.value.startDate, taskForm.value.startTime)
+    const dueAtIso = composeIsoString(taskForm.value.dueDate, taskForm.value.dueTime)
 
     const requestUrl = isEditingTask.value
       ? `http://localhost:8080/api/tasks/${editingTaskId.value}`
@@ -418,6 +524,7 @@ const onSaveTask = async (): Promise<void> => {
         startAt: startAtIso,
         dueAt: dueAtIso,
         priority: taskForm.value.priority,
+        status: taskForm.value.status,
         detail: taskForm.value.detail.trim() || null,
         locationUrl: taskForm.value.locationUrl.trim() || null,
       }),
@@ -444,7 +551,8 @@ const onSaveTask = async (): Promise<void> => {
     const selectedYear = selectedDate.getFullYear()
     const selectedMonth = selectedDate.getMonth() + 1
     await loadTasksForMonth(selectedYear, selectedMonth, true)
-    closeTaskModal()
+    forceCloseTaskModal()
+    showSuccessNotice(labels.saveSuccess)
   } catch {
     taskFormError.value = '\u4fdd\u5b58\u306b\u5931\u6557\u3057\u307e\u3057\u305f'
   } finally {
@@ -452,10 +560,50 @@ const onSaveTask = async (): Promise<void> => {
   }
 }
 
+const onDeleteTask = async (): Promise<void> => {
+  if (!isEditingTask.value || editingTaskId.value === null) return
+  if (isSavingTask.value || isDeletingTask.value) return
+  if (!window.confirm(labels.deleteConfirm)) return
+
+  isDeletingTask.value = true
+  taskFormError.value = ''
+
+  try {
+    const response = await fetch(`http://localhost:8080/api/tasks/${editingTaskId.value}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        taskFormError.value = 'ログイン状態を確認してください'
+        return
+      }
+      taskFormError.value = labels.deleteFailed
+      return
+    }
+
+    const selectedDate = new Date(selectedDateKey.value)
+    const selectedYear = selectedDate.getFullYear()
+    const selectedMonth = selectedDate.getMonth() + 1
+    const today = new Date()
+    await loadTasksForMonth(selectedYear, selectedMonth, true)
+    await loadTasksForMonth(today.getFullYear(), today.getMonth() + 1, true)
+    forceCloseTaskModal()
+    showSuccessNotice(labels.deleteSuccess)
+  } catch {
+    taskFormError.value = labels.deleteFailed
+  } finally {
+    isDeletingTask.value = false
+  }
+}
+
 watch(
   calendarBaseDate,
   async (value) => {
     await loadTasksForMonth(value.getFullYear(), value.getMonth() + 1)
+    const today = new Date()
+    await loadTasksForMonth(today.getFullYear(), today.getMonth() + 1)
   },
   { immediate: true }
 )
@@ -475,6 +623,12 @@ watch(
 
 <template>
   <section class="top-page" aria-label="top-page">
+    <transition name="toast-fade">
+      <div v-if="successNotice" class="success-toast" role="status" aria-live="polite">
+        {{ successNotice }}
+      </div>
+    </transition>
+
     <div class="top-grid">
       <article class="panel panel-today">
           <header class="panel-head panel-head-split">
@@ -482,6 +636,32 @@ watch(
             <button type="button" class="add-button" :aria-label="labels.addTask" @click="openNewTaskModal">+</button>
           </header>
         <div class="panel-body panel-body-lines">
+          <div class="task-filter-bar" aria-label="today-task-filter">
+            <button
+              type="button"
+              class="task-filter-button"
+              :class="{ 'is-active': selectedTaskFilter === 'open' }"
+              @click="selectedTaskFilter = 'open'"
+            >
+              {{ labels.filterOpen }}
+            </button>
+            <button
+              type="button"
+              class="task-filter-button"
+              :class="{ 'is-active': selectedTaskFilter === 'done' }"
+              @click="selectedTaskFilter = 'done'"
+            >
+              {{ labels.filterDone }}
+            </button>
+            <button
+              type="button"
+              class="task-filter-button"
+              :class="{ 'is-active': selectedTaskFilter === 'all' }"
+              @click="selectedTaskFilter = 'all'"
+            >
+              {{ labels.filterAll }}
+            </button>
+          </div>
           <p v-if="taskLoadError" class="empty-text empty-text-faint error-text">{{ taskLoadError }}</p>
           <p v-else-if="isLoadingTasks" class="empty-text empty-text-faint">読み込み中...</p>
 
@@ -502,6 +682,57 @@ watch(
           </ul>
 
           <p v-else-if="!isLoadingTasks" class="empty-text empty-text-faint">{{ labels.noTasks }}</p>
+        </div>
+      </article>
+
+      <article class="panel panel-active">
+        <header class="panel-head">
+          <h2>{{ labels.activeTasks }}</h2>
+        </header>
+        <div class="panel-body panel-body-active">
+          <div class="task-filter-bar" aria-label="active-task-filter">
+            <button
+              type="button"
+              class="task-filter-button"
+              :class="{ 'is-active': activeTaskFilter === 'open' }"
+              @click="activeTaskFilter = 'open'"
+            >
+              {{ labels.filterOpen }}
+            </button>
+            <button
+              type="button"
+              class="task-filter-button"
+              :class="{ 'is-active': activeTaskFilter === 'done' }"
+              @click="activeTaskFilter = 'done'"
+            >
+              {{ labels.filterDone }}
+            </button>
+            <button
+              type="button"
+              class="task-filter-button"
+              :class="{ 'is-active': activeTaskFilter === 'all' }"
+              @click="activeTaskFilter = 'all'"
+            >
+              {{ labels.filterAll }}
+            </button>
+          </div>
+          <ul v-if="activeTasks.length > 0" class="today-task-list active-task-list">
+            <li
+              v-for="task in activeTasks"
+              :key="`active-${task.id}`"
+              class="today-task-item"
+              role="button"
+              tabindex="0"
+              @click="onClickTodayTask(task)"
+              @keydown.enter="onClickTodayTask(task)"
+              @keydown.space.prevent="onClickTodayTask(task)"
+            >
+              <p class="today-task-time">{{ formatTaskTimeRange(task) }}</p>
+              <p class="today-task-title">{{ task.title }}</p>
+            </li>
+          </ul>
+
+          <p v-else class="empty-text panel-empty-text">{{ labels.noTasks }}</p>
         </div>
       </article>
 
@@ -585,12 +816,18 @@ watch(
 
           <label class="task-row">
             <span>{{ labels.startAt }}</span>
-            <input v-model="taskForm.startAt" type="datetime-local" required />
+            <div class="task-datetime-fields">
+              <input v-model="taskForm.startDate" type="date" required />
+              <input v-model="taskForm.startTime" type="time" />
+            </div>
           </label>
 
           <label class="task-row">
             <span>{{ labels.dueAt }}</span>
-            <input v-model="taskForm.dueAt" type="datetime-local" required />
+            <div class="task-datetime-fields">
+              <input v-model="taskForm.dueDate" type="date" required />
+              <input v-model="taskForm.dueTime" type="time" />
+            </div>
           </label>
 
           <label class="task-row">
@@ -599,6 +836,15 @@ watch(
               <option value="low">{{ labels.priorityLow }}</option>
               <option value="medium">{{ labels.priorityMedium }}</option>
               <option value="high">{{ labels.priorityHigh }}</option>
+            </select>
+          </label>
+
+          <label v-if="isEditingTask" class="task-row">
+            <span>{{ labels.status }}</span>
+            <select v-model="taskForm.status">
+              <option value="todo">{{ labels.statusTodo }}</option>
+              <option value="doing">{{ labels.statusDoing }}</option>
+              <option value="done">{{ labels.statusDone }}</option>
             </select>
           </label>
 
@@ -620,10 +866,24 @@ watch(
           <p v-if="taskFormError" class="form-error">{{ taskFormError }}</p>
 
           <footer class="task-actions">
-            <button type="button" class="button-secondary" :disabled="isSavingTask" @click="closeTaskModal">
+            <button
+              v-if="isEditingTask"
+              type="button"
+              class="button-danger"
+              :disabled="isSavingTask || isDeletingTask"
+              @click="onDeleteTask"
+            >
+              {{ taskDeleteLabel }}
+            </button>
+            <button
+              type="button"
+              class="button-secondary"
+              :disabled="isSavingTask || isDeletingTask"
+              @click="closeTaskModalFromUi"
+            >
               {{ labels.cancel }}
             </button>
-            <button type="submit" class="button-primary" :disabled="isSavingTask">
+            <button type="submit" class="button-primary" :disabled="isSavingTask || isDeletingTask">
               {{ taskSubmitLabel }}
             </button>
           </footer>
@@ -641,11 +901,41 @@ watch(
   padding: 12px 24px 24px;
 }
 
+.success-toast {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  padding: 12px 18px;
+  border: 1px solid rgba(77, 74, 68, 0.22);
+  border-radius: 10px;
+  background: rgba(236, 247, 232, 0.96);
+  color: #295b2f;
+  box-shadow: 0 12px 24px rgba(47, 44, 40, 0.12);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  z-index: 80;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -8px);
+}
+
 .top-grid {
   display: grid;
   grid-template-columns: minmax(360px, 1fr) minmax(540px, 1.12fr);
   grid-template-areas:
     'today calendar'
+    'active calendar'
     'ai stats';
   gap: 16px 22px;
   align-items: start;
@@ -664,6 +954,10 @@ watch(
 
 .panel-calendar {
   grid-area: calendar;
+}
+
+.panel-active {
+  grid-area: active;
 }
 
 .panel-ai {
@@ -745,21 +1039,50 @@ watch(
 }
 
 .panel-body-lines {
-  min-height: 336px;
-  background-image: linear-gradient(
-    to bottom,
-    transparent 47px,
-    rgba(77, 74, 68, 0.3) 47px,
-    rgba(77, 74, 68, 0.3) 48px,
-    transparent 48px
-  );
-  background-size: 100% 48px;
+  height: 288px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-body-tall {
   height: 560px;
+}
+
+.panel-body-active {
+  height: 228px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-filter-bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(77, 74, 68, 0.16);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.task-filter-button {
+  min-width: 72px;
+  height: 28px;
+  border: 1px solid rgba(77, 74, 68, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #5f5a52;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.task-filter-button.is-active {
+  background: #2f97ee;
+  border-color: #2f97ee;
+  color: #fff;
 }
 
 .month-view {
@@ -895,11 +1218,13 @@ watch(
   font-size: 13px;
 }
 
+.panel-empty-text {
+  padding: 12px;
+}
+
 .empty-text-faint {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  padding: 0;
+  position: static;
+  padding: 12px;
   font-size: 12px;
   color: #9a9489;
 }
@@ -912,8 +1237,17 @@ watch(
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 0;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scroll-snap-type: y mandatory;
+}
+
+.active-task-list {
+  flex: 1 1 auto;
 }
 
 .today-task-item {
@@ -928,6 +1262,8 @@ watch(
   background: rgba(255, 255, 255, 0.28);
   cursor: pointer;
   transition: background-color 0.15s ease;
+  scroll-snap-align: start;
+  overflow: hidden;
 }
 
 .today-task-item:hover {
@@ -1029,6 +1365,12 @@ watch(
   padding: 8px 10px;
 }
 
+.task-datetime-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 10px;
+}
+
 .task-row-detail {
   align-items: start;
 }
@@ -1052,7 +1394,8 @@ watch(
 }
 
 .button-secondary,
-.button-primary {
+.button-primary,
+.button-danger {
   min-width: 110px;
   height: 38px;
   border-radius: 8px;
@@ -1072,8 +1415,15 @@ watch(
   color: #fff;
 }
 
+.button-danger {
+  border: none;
+  background: #d95858;
+  color: #fff;
+}
+
 .button-secondary:disabled,
-.button-primary:disabled {
+.button-primary:disabled,
+.button-danger:disabled {
   opacity: 0.7;
   cursor: wait;
 }
@@ -1083,6 +1433,7 @@ watch(
     grid-template-columns: 1fr;
     grid-template-areas:
       'today'
+      'active'
       'calendar'
       'ai'
       'stats';

@@ -59,11 +59,23 @@ public class TaskService {
         task.setStartAt(request.startAt());
         task.setDueAt(request.dueAt());
         task.setPriority(request.priority().trim().toLowerCase());
+        task.setStatus(normalizeStatus(request.status(), task.getStatus()));
         task.setDetail(normalizeNullable(request.detail()));
         task.setLocationUrl(normalizeNullable(request.locationUrl()));
         task.setUpdatedAt(OffsetDateTime.now());
 
         return toResponse(taskRepository.save(task));
+    }
+
+    @Transactional
+    public void deleteTask(Long userId, Long taskId) {
+        Task task = taskRepository.findOwnedTask(taskId, userId)
+                .orElseThrow(() -> new AuthException("タスクが見つかりません。"));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        task.setDeletedAt(now);
+        task.setUpdatedAt(now);
+        taskRepository.save(task);
     }
 
     @Transactional(readOnly = true)
@@ -104,6 +116,15 @@ public class TaskService {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeStatus(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+
+        String trimmed = value.trim().toLowerCase();
+        return trimmed.isEmpty() ? fallback : trimmed;
     }
 
     private TaskResponse toResponse(Task task) {

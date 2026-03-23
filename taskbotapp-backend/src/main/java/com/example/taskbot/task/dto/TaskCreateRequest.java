@@ -21,6 +21,9 @@ public record TaskCreateRequest(
         @Pattern(regexp = "low|medium|high", message = "優先度は low / medium / high で入力してください。")
         String priority,
 
+        @Pattern(regexp = "todo|doing|done", message = "ステータスは todo / doing / done で入力してください。")
+        String status,
+
         @Size(max = 2000, message = "タスク詳細は2000文字以内で入力してください。")
         String detail,
 
