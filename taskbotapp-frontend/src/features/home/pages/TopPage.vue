@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
 type CalendarCell = {
@@ -44,6 +44,20 @@ type TaskItem = {
   updatedAt: string
 }
 
+type AiRecommendationItem = {
+  taskId: number
+  taskTitle: string
+  recommendationType: 'focus_today' | 'start_now' | 'split_first_step'
+  reason: string
+  nextAction: string
+  priorityScore: number
+}
+
+type AiRecommendationResponse = {
+  model: string
+  recommendations: AiRecommendationItem[]
+}
+
 const labels = {
   todayTasks: '\u672c\u65e5\u306e\u30bf\u30b9\u30af',
   activeTasks: '\u671f\u9593\u5185\u30bf\u30b9\u30af',
@@ -52,9 +66,18 @@ const labels = {
   goToday: '\u672c\u65e5\u3078',
   calendar: '\u30ab\u30ec\u30f3\u30c0\u30fc',
   aiRecommend: 'AI\u304a\u3059\u3059\u3081\u30bf\u30b9\u30af',
+  aiRefresh: '\u66f4\u65b0',
   stats: '\u7d71\u8a08',
   noTasks: '\u30bf\u30b9\u30af\u304c\u307e\u3060\u3042\u308a\u307e\u305b\u3093',
   aiPlaceholder: '\u3053\u3053\u306bAI\u63d0\u6848\u304c\u8868\u793a\u3055\u308c\u307e\u3059',
+  aiManualPlaceholder: '\u66f4\u65b0\u30dc\u30bf\u30f3\u3092\u62bc\u3059\u3068AI\u63d0\u6848\u3092\u8868\u793a\u3057\u307e\u3059',
+  aiLoading: 'AI\u304c\u63d0\u6848\u3092\u751f\u6210\u4e2d\u3067\u3059...',
+  aiEmpty: 'AI\u63d0\u6848\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093',
+  aiError: 'AI\u63d0\u6848\u306e\u53d6\u5f97\u306b\u5931\u6557\u3057\u307e\u3057\u305f',
+  aiStrengthHigh: '\u63d0\u6848\u5ea6\uff1a\u9ad8',
+  aiStrengthMedium: '\u63d0\u6848\u5ea6\uff1a\u4e2d',
+  aiStrengthLow: '\u63d0\u6848\u5ea6\uff1a\u4f4e',
+  aiNextAction: '\u6b21\u306e\u4e00\u624b',
   statsPlaceholder: '\u5b8c\u4e86\u6570\u30fb\u672a\u5b8c\u4e86\u6570\u3092\u8868\u793a\u3057\u307e\u3059',
   taskModalTitle: '\u30bf\u30b9\u30af\u3092\u8ffd\u52a0',
   title: '\u30bf\u30b9\u30af\u540d',
@@ -109,6 +132,8 @@ const toDateKey = (date: Date): string => {
   return `${y}-${m}-${d}`
 }
 
+const getTodayDateKey = (): string => toDateKey(new Date())
+
 const selectedDateKey = ref(toDateKey(new Date()))
 const selectedTaskTitle = computed(() => {
   const [yearStr, monthStr, dayStr] = selectedDateKey.value.split('-')
@@ -138,6 +163,11 @@ const successNotice = ref('')
 const tasksByMonth = ref<Record<string, TaskItem[]>>({})
 const isLoadingTasks = ref(false)
 const taskLoadError = ref('')
+const aiRecommendations = ref<AiRecommendationItem[]>([])
+const aiModel = ref('')
+const isLoadingAiRecommendations = ref(false)
+const aiRecommendationError = ref('')
+const hasLoadedAiRecommendations = ref(false)
 const selectedTaskFilter = ref<TaskFilter>('open')
 const activeTaskFilter = ref<TaskFilter>('open')
 const taskForm = ref<TaskForm>({
@@ -312,6 +342,59 @@ const composeIsoString = (dateValue: string, timeValue: string): string => {
   return new Date(`${dateValue}T${timeValue}`).toISOString()
 }
 
+const loadAiRecommendations = async (): Promise<void> => {
+  isLoadingAiRecommendations.value = true
+  aiRecommendationError.value = ''
+
+  try {
+    const response = await fetch(
+      `http://localhost:8080/api/ai/task-recommendations?date=${encodeURIComponent(getTodayDateKey())}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+      }
+    )
+
+    if (!response.ok) {
+      let message = labels.aiError
+      try {
+        const data = (await response.json()) as { message?: string }
+        if (data?.message) message = data.message
+      } catch {
+        // no-op
+      }
+      aiRecommendationError.value = message
+      aiRecommendations.value = []
+      aiModel.value = ''
+      hasLoadedAiRecommendations.value = true
+      return
+    }
+
+    const data = (await response.json()) as AiRecommendationResponse
+    aiRecommendations.value = data.recommendations ?? []
+    aiModel.value = data.model ?? ''
+    hasLoadedAiRecommendations.value = true
+  } catch {
+    aiRecommendationError.value = labels.aiError
+    aiRecommendations.value = []
+    aiModel.value = ''
+    hasLoadedAiRecommendations.value = true
+  } finally {
+    isLoadingAiRecommendations.value = false
+  }
+}
+const recommendationTypeLabel = (type: AiRecommendationItem['recommendationType']): string => {
+  if (type === 'focus_today') return '\u4eca\u65e5\u512a\u5148'
+  if (type === 'start_now') return '\u4eca\u7740\u624b'
+  return '\u5206\u5272\u63a8\u5968'
+}
+
+const recommendationStrengthLabel = (score: number): string => {
+  if (score >= 80) return labels.aiStrengthHigh
+  if (score >= 50) return labels.aiStrengthMedium
+  return labels.aiStrengthLow
+}
+
 const loadTasksForMonth = async (year: number, month: number, force = false): Promise<void> => {
   const monthKey = toMonthKey(year, month)
   if (!force && tasksByMonth.value[monthKey]) return
@@ -326,9 +409,9 @@ const loadTasksForMonth = async (year: number, month: number, force = false): Pr
 
     if (!response.ok) {
       if (response.status === 401) {
-        taskLoadError.value = 'ログイン状態が切れています。再ログインしてください。'
+        taskLoadError.value = '\u30ed\u30b0\u30a4\u30f3\u304c\u5fc5\u8981\u3067\u3059'
       } else {
-        taskLoadError.value = 'タスク取得に失敗しました。'
+        taskLoadError.value = '\u30bf\u30b9\u30af\u306e\u53d6\u5f97\u306b\u5931\u6557\u3057\u307e\u3057\u305f'
       }
       return
     }
@@ -336,7 +419,7 @@ const loadTasksForMonth = async (year: number, month: number, force = false): Pr
     const data = (await response.json()) as TaskItem[]
     tasksByMonth.value[monthKey] = data
   } catch {
-    taskLoadError.value = 'タスク取得に失敗しました。'
+    taskLoadError.value = '\u30bf\u30b9\u30af\u306e\u53d6\u5f97\u306b\u5931\u6557\u3057\u307e\u3057\u305f'
   } finally {
     isLoadingTasks.value = false
   }
@@ -390,6 +473,11 @@ const goToday = (): void => {
 
 const onClickDate = (key: string): void => {
   selectedDateKey.value = key
+}
+
+const onDoubleClickDate = (key: string): void => {
+  selectedDateKey.value = key
+  openNewTaskModal()
 }
 
 const resetTaskForm = (): void => {
@@ -532,11 +620,11 @@ const onSaveTask = async (): Promise<void> => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        taskFormError.value = 'ログイン状態が切れています。再ログインしてください。'
+        taskFormError.value = '\u30ed\u30b0\u30a4\u30f3\u304c\u5fc5\u8981\u3067\u3059'
         return
       }
 
-      let message = '保存に失敗しました'
+      let message = '\u4fdd\u5b58\u306b\u5931\u6557\u3057\u307e\u3057\u305f'
       try {
         const data = (await response.json()) as { message?: string }
         if (data?.message) message = data.message
@@ -576,7 +664,7 @@ const onDeleteTask = async (): Promise<void> => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        taskFormError.value = 'ログイン状態を確認してください'
+        taskFormError.value = '繝ｭ繧ｰ繧､繝ｳ迥ｶ諷九ｒ遒ｺ隱阪＠縺ｦ縺上□縺輔＞'
         return
       }
       taskFormError.value = labels.deleteFailed
@@ -663,7 +751,7 @@ watch(
             </button>
           </div>
           <p v-if="taskLoadError" class="empty-text empty-text-faint error-text">{{ taskLoadError }}</p>
-          <p v-else-if="isLoadingTasks" class="empty-text empty-text-faint">読み込み中...</p>
+          <p v-else-if="isLoadingTasks" class="empty-text empty-text-faint">隱ｭ縺ｿ霎ｼ縺ｿ荳ｭ...</p>
 
           <ul v-if="selectedTasks.length > 0" class="today-task-list">
             <li
@@ -761,6 +849,7 @@ watch(
               role="button"
               tabindex="0"
               @click="onClickDate(cell.key)"
+              @dblclick="onDoubleClickDate(cell.key)"
               @keydown.enter="onClickDate(cell.key)"
               @keydown.space.prevent="onClickDate(cell.key)"
             >
@@ -783,11 +872,26 @@ watch(
       </article>
 
       <article class="panel panel-ai">
-        <header class="panel-head">
+        <header class="panel-head panel-head-between">
           <h2>{{ labels.aiRecommend }}</h2>
+          <button type="button" class="today-button" @click="loadAiRecommendations">{{ labels.aiRefresh }}</button>
         </header>
         <div class="panel-body panel-body-ai">
-          <p class="empty-text">{{ labels.aiPlaceholder }}</p>
+          <p v-if="isLoadingAiRecommendations" class="empty-text">{{ labels.aiLoading }}</p>
+          <p v-else-if="aiRecommendationError" class="empty-text error-text">{{ aiRecommendationError }}</p>
+          <ul v-else-if="aiRecommendations.length > 0" class="ai-recommendation-list">
+            <li v-for="item in aiRecommendations" :key="item.taskId" class="ai-recommendation-item">
+              <div class="ai-recommendation-head">
+                <span class="ai-recommendation-type">{{ recommendationTypeLabel(item.recommendationType) }}</span>
+                <span class="ai-recommendation-score">{{ recommendationStrengthLabel(item.priorityScore) }}</span>
+              </div>
+              <p class="ai-recommendation-title">{{ item.taskTitle }}</p>
+              <p class="ai-recommendation-reason">{{ item.reason }}</p>
+              <p class="ai-recommendation-action">{{ labels.aiNextAction }}: {{ item.nextAction }}</p>
+            </li>
+          </ul>
+          <p v-else-if="hasLoadedAiRecommendations" class="empty-text">{{ labels.aiEmpty }}</p>
+          <p v-else class="empty-text">{{ labels.aiManualPlaceholder }}</p>
         </div>
       </article>
 
@@ -1204,7 +1308,12 @@ watch(
 }
 
 .panel-body-ai {
-  min-height: 280px;
+  height: 280px;
+  padding: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .panel-body-stats {
@@ -1287,6 +1396,71 @@ watch(
   color: #6b675f;
   white-space: nowrap;
   text-align: left;
+}
+
+.ai-recommendation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+.ai-recommendation-item {
+  border: 1px solid rgba(77, 74, 68, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.ai-recommendation-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ai-recommendation-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(47, 151, 238, 0.14);
+  color: #1f6aa6;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ai-recommendation-score {
+  color: #6b675f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-recommendation-title {
+  margin: 0 0 6px;
+  color: #2f2c28;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ai-recommendation-reason,
+.ai-recommendation-action {
+  margin: 0;
+  color: #5f5a52;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ai-recommendation-action {
+  margin-top: 6px;
 }
 
 .modal-overlay {
@@ -1471,3 +1645,4 @@ watch(
   }
 }
 </style>
+

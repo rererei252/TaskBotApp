@@ -36,4 +36,19 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("taskId") Long taskId,
             @Param("userId") Long userId
     );
+
+    @Query("""
+            select t
+            from Task t
+            where t.user.id = :userId
+              and t.deletedAt is null
+              and t.dueAt >= :from
+              and t.startAt < :to
+            order by t.dueAt asc, t.startAt asc, t.id asc
+            """)
+    List<Task> findTasksForRecommendation(
+            @Param("userId") Long userId,
+            @Param("from") OffsetDateTime from,
+            @Param("to") OffsetDateTime to
+    );
 }
