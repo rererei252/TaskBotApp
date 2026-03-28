@@ -6,6 +6,7 @@ public record AiTaskRecommendationItem(
         String recommendationType,
         String reason,
         String nextAction,
-        Integer priorityScore
+        Integer priorityScore,
+        Long daysRemaining
 ) {
 }

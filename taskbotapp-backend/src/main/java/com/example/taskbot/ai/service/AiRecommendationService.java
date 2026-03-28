@@ -16,7 +16,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -82,7 +84,7 @@ public class AiRecommendationService {
         try {
             String prompt = buildPrompt(date, tasks);
             String responseText = requestRecommendations(prompt);
-            return new AiTaskRecommendationResponse(openAiModel, parseRecommendations(responseText));
+            return new AiTaskRecommendationResponse(openAiModel, normalizeTaskTitles(parseRecommendations(responseText), tasks));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AuthException("\u0041\u0049\u63d0\u6848\u306e\u53d6\u5f97\u4e2d\u306b\u51e6\u7406\u304c\u4e2d\u65ad\u3055\u308c\u307e\u3057\u305f\u3002");
@@ -96,7 +98,8 @@ public class AiRecommendationService {
         sb.append("Target date: ").append(date).append('\n');
         sb.append("You are a task recommendation assistant for a Japanese task management app.").append('\n');
         sb.append("Return up to 3 recommendations that are actually useful on the target date.").append('\n');
-        sb.append("All output fields except recommendationType must be written in Japanese.").append('\n');
+        sb.append("taskTitle must be copied exactly from the original task title. Do not translate or rewrite it.").append('\n');
+        sb.append("reason and nextAction must be written in Japanese.").append('\n');
         sb.append("reason must be short and concrete, within 60 Japanese characters.").append('\n');
         sb.append("nextAction must be short and concrete, within 30 Japanese characters.").append('\n');
         sb.append("recommendationType must be one of: focus_today, start_now, split_first_step.").append('\n');
@@ -265,10 +268,46 @@ public class AiRecommendationService {
                     node.path("recommendationType").asText(),
                     reason,
                     nextAction,
-                    node.path("priorityScore").asInt()
+                    node.path("priorityScore").asInt(),
+                    null
             ));
         }
         return items;
+    }
+
+    private List<AiTaskRecommendationItem> normalizeTaskTitles(
+            List<AiTaskRecommendationItem> recommendations,
+            List<Task> tasks
+    ) {
+        Map<Long, String> titleByTaskId = new LinkedHashMap<>();
+        for (Task task : tasks) {
+            titleByTaskId.put(task.getId(), task.getTitle());
+        }
+
+        List<AiTaskRecommendationItem> normalized = new ArrayList<>();
+        LocalDate today = LocalDate.now(TOKYO_ZONE);
+        for (AiTaskRecommendationItem item : recommendations) {
+            String originalTitle = titleByTaskId.getOrDefault(item.taskId(), item.taskTitle());
+            Task matchedTask = tasks.stream()
+                    .filter(task -> task.getId().equals(item.taskId()))
+                    .findFirst()
+                    .orElse(null);
+            Long daysRemaining = null;
+            if (matchedTask != null) {
+                LocalDate dueDate = matchedTask.getDueAt().atZoneSameInstant(TOKYO_ZONE).toLocalDate();
+                daysRemaining = ChronoUnit.DAYS.between(today, dueDate);
+            }
+            normalized.add(new AiTaskRecommendationItem(
+                    item.taskId(),
+                    originalTitle,
+                    item.recommendationType(),
+                    item.reason(),
+                    item.nextAction(),
+                    item.priorityScore(),
+                    daysRemaining
+            ));
+        }
+        return normalized;
     }
 
     private String trimText(String value, int maxLength) {
